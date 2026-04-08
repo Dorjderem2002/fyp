@@ -584,6 +584,24 @@ class AutoFeatureBuilder:
         feat["max_driver_vaf"] = max_driver_vaf
         feat["n_driver_mutations"] = n_driver_mut
 
+        clinical_cols_for_interact = ["BM_BLAST", "WBC", "ANC", "HB", "PLT"]
+        for cc in clinical_cols_for_interact:
+            cvals = cdf.set_index("ID").reindex(ids)[cc].values.astype(float)
+            for flag, flag_vals in [
+                ("flt3_itd", flt3_itd),
+                (
+                    "tp53_mut",
+                    [int("TP53" in patient_genes.get(pid, set())) for pid in ids],
+                ),
+                (
+                    "npm1_mut",
+                    [int("NPM1" in patient_genes.get(pid, set())) for pid in ids],
+                ),
+            ]:
+                fv = np.array(flag_vals, dtype=float)
+                feat[f"{cc}_x_{flag}"] = cvals * fv
+                feat[f"{cc}_x_{flag}_ratio"] = cvals / (fv + 0.01)
+
         return feat
 
 

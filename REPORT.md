@@ -43,3 +43,14 @@
 **Result:** C-index = 0.7143 (prev: 0.7139) | status: keep
 **Analysis:** GBM and RSF tuning helped significantly. GBM: 0.7130→0.7154, RSF: 0.7129→0.7146. More trees + lower LR helped both. Driver VAF features also contribute signal. LightGBM remains weak at 0.6841 — needs more work or may need a different approach entirely. Elapsed time increased to ~7.3 min but within budget.
 **Next idea:** Try more aggressive LightGBM tuning or replace it. Also try adding interaction features between clinical and molecular features (e.g. blast% × FLT3).
+
+---
+### Experiment 4: Clinical-molecular interactions + LightGBM event_weight tuning
+**Date:** 2026-04-09
+**Hypothesis:** Interacting clinical features (BM_BLAST, WBC, etc.) with key mutation flags will capture that the same mutation has different prognostic impact depending on disease burden. Higher event_weight for LightGBM may help it focus more on events.
+**Changes:**
+- data_transform.py: Added clinical × molecular interaction features (5 clinical cols × 3 mutation flags = 30 new features)
+- train.py: LightGBM event_weight 2.0→3.0
+**Result:** C-index = 0.7149 (prev: 0.7143) | status: keep
+**Analysis:** Clinical-molecular interactions helped. RSF improved to 0.7163 (best single model so far). LightGBM slightly improved with higher event_weight. GBM stable at 0.7150. The interactions (BM_BLAST × FLT3_ITD, WBC × TP53, etc.) capture that mutations have different prognostic meaning depending on disease burden. 612 features, still reasonable.
+**Next idea:** Try pushing LightGBM further — maybe try a completely different configuration or add more trees. Also try tuning GBM more aggressively — try max_depth=4.

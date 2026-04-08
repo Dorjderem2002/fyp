@@ -106,7 +106,7 @@ def create_models():
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
-        "lgbm": LGBMSurvivalProxy(event_weight=2.0),
+        "lgbm": LGBMSurvivalProxy(event_weight=3.0),
     }
 
 
