@@ -31,3 +31,15 @@
 **Result:** C-index = 0.7139 (prev: 0.7137) | status: keep
 **Analysis:** Small improvement. The targeted interaction features helped the ensemble despite LightGBM not improving much. GBM and RSF remain dominant. The new features (npm1_no_flt3itd, tp53_multihit, flt3_itd, monosomal_karyotype, etc.) add useful signal. LightGBM tuning didn't help much — may need more aggressive changes.
 **Next idea:** Try more aggressive LightGBM tuning or different model approach. Also try GBM tuning and adding more mutation interaction features.
+
+---
+### Experiment 3: GBM/RSF tuning + VAF-weighted driver features
+**Date:** 2026-04-09
+**Hypothesis:** Tuning the strongest models (GBM, RSF) with more trees and relaxed min samples will improve their C-index, and adding FLT3-ITD VAF and driver gene VAF features will add signal.
+**Changes:**
+- train.py: GBM n_estimators 300→500, lr 0.05→0.03, min_samples_split 20→15, min_samples_leaf 10→8
+- train.py: RSF n_estimators 300→500, max_depth 8→10, min_samples_split 20→15, min_samples_leaf 10→6
+- data_transform.py: Added flt3_itd_vaf, max_driver_vaf, n_driver_mutations features
+**Result:** C-index = 0.7143 (prev: 0.7139) | status: keep
+**Analysis:** GBM and RSF tuning helped significantly. GBM: 0.7130→0.7154, RSF: 0.7129→0.7146. More trees + lower LR helped both. Driver VAF features also contribute signal. LightGBM remains weak at 0.6841 — needs more work or may need a different approach entirely. Elapsed time increased to ~7.3 min but within budget.
+**Next idea:** Try more aggressive LightGBM tuning or replace it. Also try adding interaction features between clinical and molecular features (e.g. blast% × FLT3).

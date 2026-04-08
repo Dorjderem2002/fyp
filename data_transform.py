@@ -449,12 +449,15 @@ class AutoFeatureBuilder:
             feat["npm1_no_flt3itd"] = 0
             feat["tp53_multihit"] = 0
             feat["flt3_itd"] = 0
+            feat["flt3_itd_vaf"] = 0.0
             feat["monosomal_karyotype"] = 0
             feat["n_monosomies"] = 0
             feat["path_epigenetic_count"] = 0
             feat["path_splicing_count"] = 0
             feat["path_signaling_count"] = 0
             feat["cyto_major_clone_frac"] = 0.0
+            feat["max_driver_vaf"] = 0.0
+            feat["n_driver_mutations"] = 0
             return feat
 
         patient_genes = mol.groupby("ID")["GENE"].apply(set).to_dict()
@@ -476,6 +479,32 @@ class AutoFeatureBuilder:
         tp53_counts = mol[mol["GENE"] == "TP53"].groupby("ID").size()
         tp53_multi_pids = set(tp53_counts[tp53_counts >= 2].index)
 
+        flt3_itd_vaf_map = {}
+        if "VAF" in mol.columns:
+            itd_mol = mol[(mol["GENE"] == "FLT3") & mol["ID"].isin(itd_patients)]
+            if not itd_mol.empty:
+                flt3_itd_vaf_map = itd_mol.groupby("ID")["VAF"].max().to_dict()
+
+        max_vaf_map = {}
+        n_driver_map = {}
+        if "VAF" in mol.columns:
+            driver_genes = {
+                "FLT3",
+                "NPM1",
+                "TP53",
+                "DNMT3A",
+                "IDH1",
+                "IDH2",
+                "RUNX1",
+                "CEBPA",
+                "WT1",
+                "ASXL1",
+            }
+            driver_mol = mol[mol["GENE"].isin(driver_genes)]
+            if not driver_mol.empty:
+                max_vaf_map = driver_mol.groupby("ID")["VAF"].max().to_dict()
+                n_driver_map = driver_mol.groupby("ID")["GENE"].nunique().to_dict()
+
         cyto_map = dict(zip(cdf["ID"].values, cdf["CYTOGENETICS"].values))
 
         epigenetic_genes = {"TET2", "DNMT3A", "IDH1", "IDH2", "ASXL1", "EZH2", "BCOR"}
@@ -494,12 +523,15 @@ class AutoFeatureBuilder:
         npm1_no_flt3 = []
         tp53_multihit = []
         flt3_itd = []
+        flt3_itd_vaf = []
         monosomal_karyotype = []
         n_monosomies = []
         path_epi = []
         path_spl = []
         path_sig = []
         clone_frac = []
+        max_driver_vaf = []
+        n_driver_mut = []
 
         for pid in ids:
             genes = patient_genes.get(pid, set())
@@ -507,6 +539,7 @@ class AutoFeatureBuilder:
             npm1_no_flt3.append(int("NPM1" in genes and pid not in itd_patients))
             tp53_multihit.append(int(pid in tp53_multi_pids))
             flt3_itd.append(int(pid in itd_patients))
+            flt3_itd_vaf.append(flt3_itd_vaf_map.get(pid, 0.0))
 
             cyto_str = cyto_map.get(pid, "")
             if pd.isna(cyto_str):
@@ -535,15 +568,21 @@ class AutoFeatureBuilder:
             total = sum(cell_counts)
             clone_frac.append(max(cell_counts) / total if total > 0 else 0.0)
 
+            max_driver_vaf.append(max_vaf_map.get(pid, 0.0))
+            n_driver_mut.append(n_driver_map.get(pid, 0))
+
         feat["npm1_no_flt3itd"] = npm1_no_flt3
         feat["tp53_multihit"] = tp53_multihit
         feat["flt3_itd"] = flt3_itd
+        feat["flt3_itd_vaf"] = flt3_itd_vaf
         feat["monosomal_karyotype"] = monosomal_karyotype
         feat["n_monosomies"] = n_monosomies
         feat["path_epigenetic_count"] = path_epi
         feat["path_splicing_count"] = path_spl
         feat["path_signaling_count"] = path_sig
         feat["cyto_major_clone_frac"] = clone_frac
+        feat["max_driver_vaf"] = max_driver_vaf
+        feat["n_driver_mutations"] = n_driver_mut
 
         return feat
 
