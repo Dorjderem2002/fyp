@@ -46,11 +46,11 @@ class LGBMSurvivalProxy:
     def __init__(self, event_weight=2.0, **params):
         self.event_weight = event_weight
         defaults = dict(
-            n_estimators=400,
-            max_depth=4,
-            learning_rate=0.05,
-            num_leaves=20,
-            min_child_samples=20,
+            n_estimators=600,
+            max_depth=5,
+            learning_rate=0.03,
+            num_leaves=31,
+            min_child_samples=15,
             subsample=0.8,
             colsample_bytree=0.7,
             reg_alpha=0.1,
@@ -130,18 +130,23 @@ def run():
 
     # ---- 2. Auto-discover features --------------------------------------
     print("[2/7] Auto-discovering feature vocabulary from training data …")
-    train_feat, test_feat, builder = build_features(data, builder_params=dict(
-        min_gene_patients=5,
-        min_cyto_patients=8,
-        min_effect_patients=5,
-        n_top_comut_genes=20,
-        min_comut_patients=8,
-    ))
-    print(f"       Discovered: {len(builder.genes_)} genes, "
-          f"{len(builder.cyto_tokens_)} cyto tokens, "
-          f"{len(builder.effects_)} effects, "
-          f"{len(builder.comut_pairs_)} co-mut pairs, "
-          f"{len(builder.chroms_)} chromosomes")
+    train_feat, test_feat, builder = build_features(
+        data,
+        builder_params=dict(
+            min_gene_patients=5,
+            min_cyto_patients=8,
+            min_effect_patients=5,
+            n_top_comut_genes=20,
+            min_comut_patients=8,
+        ),
+    )
+    print(
+        f"       Discovered: {len(builder.genes_)} genes, "
+        f"{len(builder.cyto_tokens_)} cyto tokens, "
+        f"{len(builder.effects_)} effects, "
+        f"{len(builder.comut_pairs_)} co-mut pairs, "
+        f"{len(builder.chroms_)} chromosomes"
+    )
 
     # ---- 3. Transform features ------------------------------------------
     print("[3/7] Building feature matrices …")
@@ -174,8 +179,10 @@ def run():
     keep_mask = vt.get_support()
     feature_cols_filtered = [c for c, k in zip(feature_cols, keep_mask) if k]
     n_dropped = n_feat_raw - len(feature_cols_filtered)
-    print(f"       Kept {len(feature_cols_filtered)} features, "
-          f"dropped {n_dropped} near-constant")
+    print(
+        f"       Kept {len(feature_cols_filtered)} features, "
+        f"dropped {n_dropped} near-constant"
+    )
 
     X_all = X_all[:, keep_mask]
     X_test = X_test[:, keep_mask]
@@ -192,8 +199,10 @@ def run():
     test_preds = {name: np.zeros(n_test) for name in model_names}
 
     for fi, (tr_idx, va_idx) in enumerate(folds):
-        print(f"\n  ── Fold {fi + 1}/{N_FOLDS}  "
-              f"(train={len(tr_idx)}, val={len(va_idx)}) ──")
+        print(
+            f"\n  ── Fold {fi + 1}/{N_FOLDS}  "
+            f"(train={len(tr_idx)}, val={len(va_idx)}) ──"
+        )
 
         # Per-fold imputation + scaling (no leakage)
         imp = SimpleImputer(strategy="median")
@@ -277,8 +286,12 @@ def run():
 
     try:
         final_gbm = GradientBoostingSurvivalAnalysis(
-            n_estimators=300, max_depth=3, learning_rate=0.05,
-            min_samples_split=20, min_samples_leaf=10, subsample=0.8,
+            n_estimators=300,
+            max_depth=3,
+            learning_rate=0.05,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            subsample=0.8,
             random_state=RANDOM_STATE,
         )
         final_gbm.fit(X_final, y_all)
@@ -287,8 +300,10 @@ def run():
         print("\n  Top 30 features (auto-discovered by GBM):")
         for rank, idx in enumerate(top_idx, 1):
             if importances[idx] > 0:
-                print(f"    {rank:3d}. {feature_cols[idx]:45s}  "
-                      f"importance = {importances[idx]:.4f}")
+                print(
+                    f"    {rank:3d}. {feature_cols[idx]:45s}  "
+                    f"importance = {importances[idx]:.4f}"
+                )
     except Exception as exc:
         print(f"  Could not compute importances: {exc}")
 
@@ -302,8 +317,10 @@ def run():
             print("\n  Top 20 features (auto-discovered by LightGBM):")
             for rank, idx in enumerate(top_lgbm, 1):
                 if lgbm_imp[idx] > 0:
-                    print(f"    {rank:3d}. {feature_cols[idx]:45s}  "
-                          f"importance = {lgbm_imp[idx]}")
+                    print(
+                        f"    {rank:3d}. {feature_cols[idx]:45s}  "
+                        f"importance = {lgbm_imp[idx]}"
+                    )
     except Exception:
         pass
 
@@ -320,8 +337,10 @@ def run():
     print("=" * 65)
     for name in model_names:
         arr = np.array(cv_scores[name])
-        print(f"  {name:12s}: {arr.mean():.4f} ± {arr.std():.4f}  "
-              f"({', '.join(f'{x:.4f}' for x in arr)})")
+        print(
+            f"  {name:12s}: {arr.mean():.4f} ± {arr.std():.4f}  "
+            f"({', '.join(f'{x:.4f}' for x in arr)})"
+        )
     print(f"  {'ENSEMBLE':12s}: {oof_score:.4f}  (OOF, rank-blended)")
     print(f"  Features:     {len(feature_cols)} (after variance filter)")
     print(f"  Folds:        {N_FOLDS}")

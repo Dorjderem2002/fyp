@@ -169,6 +169,7 @@ class AutoFeatureBuilder:
         feat = self._add_molecular(molecular_df, feat)
         feat = self._add_comut(molecular_df, feat)
         feat = self._add_chr_counts(molecular_df, feat)
+        feat = self._add_targeted_interactions(clinical_df, molecular_df, feat)
 
         feat = feat.replace([np.inf, -np.inf], np.nan)
         return feat
@@ -215,9 +216,7 @@ class AutoFeatureBuilder:
             n_abn_list.append(n_struct + n_mono + n_tri)
 
             first = clones[0].strip()
-            normal_list.append(
-                int(bool(re.match(r"^46,(xx|xy)(\[\d+\])?$", first)))
-            )
+            normal_list.append(int(bool(re.match(r"^46,(xx|xy)(\[\d+\])?$", first))))
 
         feat["cyto_n_clones"] = n_clones_list
         feat["cyto_n_abn"] = n_abn_list
@@ -249,9 +248,16 @@ class AutoFeatureBuilder:
         # Default zeros for empty molecular data
         if mol.empty:
             for c in [
-                "n_mutations", "n_unique_genes", "mean_vaf", "max_vaf",
-                "std_vaf", "min_vaf", "n_clonal", "n_subclonal",
-                "clonal_ratio", "n_distinct_effects",
+                "n_mutations",
+                "n_unique_genes",
+                "mean_vaf",
+                "max_vaf",
+                "std_vaf",
+                "min_vaf",
+                "n_clonal",
+                "n_subclonal",
+                "clonal_ratio",
+                "n_distinct_effects",
             ]:
                 feat[c] = 0
             for g in self.genes_:
@@ -289,12 +295,7 @@ class AutoFeatureBuilder:
 
         # Clonal vs subclonal counts
         if "VAF" in mol.columns:
-            nc = (
-                mol[mol["VAF"] > 0.3]
-                .groupby("ID")
-                .size()
-                .reset_index(name="n_clonal")
-            )
+            nc = mol[mol["VAF"] > 0.3].groupby("ID").size().reset_index(name="n_clonal")
             ns = (
                 mol[mol["VAF"] <= 0.3]
                 .groupby("ID")
@@ -322,9 +323,7 @@ class AutoFeatureBuilder:
             # Max VAF per gene
             has_vaf = "VAF" in mol.columns
             if has_vaf:
-                vaf_piv = (
-                    gm.groupby(["ID", "GENE"])["VAF"].max().unstack(fill_value=0)
-                )
+                vaf_piv = gm.groupby(["ID", "GENE"])["VAF"].max().unstack(fill_value=0)
 
             # Ensure all vocabulary genes are present
             for g in self.genes_:
@@ -345,9 +344,7 @@ class AutoFeatureBuilder:
             if has_vaf:
                 vaf_piv = vaf_piv[self.genes_]
                 vaf_piv.columns = [f"vaf_{g}" for g in self.genes_]
-                feat = feat.merge(
-                    vaf_piv, left_on="ID", right_index=True, how="left"
-                )
+                feat = feat.merge(vaf_piv, left_on="ID", right_index=True, how="left")
             else:
                 for g in self.genes_:
                     feat[f"vaf_{g}"] = 0.0
@@ -373,9 +370,7 @@ class AutoFeatureBuilder:
                         ep[e] = 0
                 ep = ep[self.effects_]
                 ep.columns = [f"eff_{e}" for e in self.effects_]
-                feat = feat.merge(
-                    ep, left_on="ID", right_index=True, how="left"
-                )
+                feat = feat.merge(ep, left_on="ID", right_index=True, how="left")
 
         for e in self.effects_:
             col = f"eff_{e}"
@@ -404,7 +399,10 @@ class AutoFeatureBuilder:
         patient_genes = mol.groupby("ID")["GENE"].apply(set).to_dict()
         for g1, g2 in self.comut_pairs_:
             feat[f"comut_{g1}_{g2}"] = [
-                int(g1 in patient_genes.get(pid, set()) and g2 in patient_genes.get(pid, set()))
+                int(
+                    g1 in patient_genes.get(pid, set())
+                    and g2 in patient_genes.get(pid, set())
+                )
                 for pid in ids
             ]
         return feat
@@ -435,6 +433,118 @@ class AutoFeatureBuilder:
             )
             feat = feat.merge(cm, on="ID", how="left")
             feat[f"chr_{ch}_muts"] = feat[f"chr_{ch}_muts"].fillna(0).astype(int)
+        return feat
+
+    # --- targeted high-value interaction features ---
+    def _add_targeted_interactions(self, cdf, mdf, feat):
+        ids = feat["ID"].values
+        id_set = set(ids)
+        mol = (
+            mdf[mdf["ID"].isin(id_set)].copy()
+            if mdf is not None and not mdf.empty
+            else pd.DataFrame()
+        )
+
+        if mol.empty:
+            feat["npm1_no_flt3itd"] = 0
+            feat["tp53_multihit"] = 0
+            feat["flt3_itd"] = 0
+            feat["monosomal_karyotype"] = 0
+            feat["n_monosomies"] = 0
+            feat["path_epigenetic_count"] = 0
+            feat["path_splicing_count"] = 0
+            feat["path_signaling_count"] = 0
+            feat["cyto_major_clone_frac"] = 0.0
+            return feat
+
+        patient_genes = mol.groupby("ID")["GENE"].apply(set).to_dict()
+
+        itd_patients = set()
+        if "EFFECT" in mol.columns:
+            itd_rows = mol[
+                (mol["GENE"] == "FLT3")
+                & (mol["EFFECT"].astype(str).str.lower().str.contains("itd"))
+            ]
+            itd_patients = set(itd_rows["ID"].values)
+        if "PROTEIN_CHANGE" in mol.columns:
+            itd_rows2 = mol[
+                (mol["GENE"] == "FLT3")
+                & (mol["PROTEIN_CHANGE"].astype(str).str.upper().str.contains("ITD"))
+            ]
+            itd_patients |= set(itd_rows2["ID"].values)
+
+        tp53_counts = mol[mol["GENE"] == "TP53"].groupby("ID").size()
+        tp53_multi_pids = set(tp53_counts[tp53_counts >= 2].index)
+
+        cyto_map = dict(zip(cdf["ID"].values, cdf["CYTOGENETICS"].values))
+
+        epigenetic_genes = {"TET2", "DNMT3A", "IDH1", "IDH2", "ASXL1", "EZH2", "BCOR"}
+        splicing_genes = {"SF3B1", "SRSF2", "U2AF1", "ZRSR2"}
+        signaling_genes = {
+            "FLT3",
+            "NRAS",
+            "KRAS",
+            "KIT",
+            "PTPN11",
+            "JAK2",
+            "CBL",
+            "MPL",
+        }
+
+        npm1_no_flt3 = []
+        tp53_multihit = []
+        flt3_itd = []
+        monosomal_karyotype = []
+        n_monosomies = []
+        path_epi = []
+        path_spl = []
+        path_sig = []
+        clone_frac = []
+
+        for pid in ids:
+            genes = patient_genes.get(pid, set())
+
+            npm1_no_flt3.append(int("NPM1" in genes and pid not in itd_patients))
+            tp53_multihit.append(int(pid in tp53_multi_pids))
+            flt3_itd.append(int(pid in itd_patients))
+
+            cyto_str = cyto_map.get(pid, "")
+            if pd.isna(cyto_str):
+                cyto_str = ""
+            s_low = cyto_str.lower().strip()
+
+            monos = re.findall(r"(?:^|[,/\s])-(\d+)", s_low)
+            n_mon = len(monos)
+            n_monosomies.append(n_mon)
+
+            n_struct = len(re.findall(r"(del|inv|t|dup|add|ins|der)\(", s_low))
+            n_tri = len(re.findall(r"\+(\d+)", s_low))
+            mk = 1 if n_mon >= 2 or (n_mon >= 1 and n_struct > 0) else 0
+            monosomal_karyotype.append(mk)
+
+            path_epi.append(len(genes & epigenetic_genes))
+            path_spl.append(len(genes & splicing_genes))
+            path_sig.append(len(genes & signaling_genes))
+
+            clones = s_low.split("/")
+            cell_counts = []
+            for clone in clones:
+                m = re.search(r"\[(\d+)\]", clone)
+                if m:
+                    cell_counts.append(int(m.group(1)))
+            total = sum(cell_counts)
+            clone_frac.append(max(cell_counts) / total if total > 0 else 0.0)
+
+        feat["npm1_no_flt3itd"] = npm1_no_flt3
+        feat["tp53_multihit"] = tp53_multihit
+        feat["flt3_itd"] = flt3_itd
+        feat["monosomal_karyotype"] = monosomal_karyotype
+        feat["n_monosomies"] = n_monosomies
+        feat["path_epigenetic_count"] = path_epi
+        feat["path_splicing_count"] = path_spl
+        feat["path_signaling_count"] = path_sig
+        feat["cyto_major_clone_frac"] = clone_frac
+
         return feat
 
 
