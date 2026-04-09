@@ -170,6 +170,7 @@ class AutoFeatureBuilder:
         feat = self._add_comut(molecular_df, feat)
         feat = self._add_chr_counts(molecular_df, feat)
         feat = self._add_targeted_interactions(clinical_df, molecular_df, feat)
+        feat = self._add_chromosome_diversity(molecular_df, feat)
 
         feat = feat.replace([np.inf, -np.inf], np.nan)
         return feat
@@ -295,22 +296,26 @@ class AutoFeatureBuilder:
 
         # Clonal vs subclonal counts
         if "VAF" in mol.columns:
-            nc = mol[mol["VAF"] > 0.3].groupby("ID").size().reset_index(name="n_clonal")
-            ns = (
-                mol[mol["VAF"] <= 0.3]
-                .groupby("ID")
-                .size()
-                .reset_index(name="n_subclonal")
-            )
-            feat = feat.merge(nc, on="ID", how="left")
-            feat["n_clonal"] = feat["n_clonal"].fillna(0)
-            feat = feat.merge(ns, on="ID", how="left")
-            feat["n_subclonal"] = feat["n_subclonal"].fillna(0)
-            feat["clonal_ratio"] = feat["n_clonal"] / (feat["n_mutations"] + 1)
+            for thresh, label in [
+                (0.2, "vaf_gt_20"),
+                (0.3, "vaf_gt_30"),
+                (0.5, "vaf_gt_50"),
+            ]:
+                nc = (
+                    mol[mol["VAF"] > thresh]
+                    .groupby("ID")
+                    .size()
+                    .reset_index(name=f"n_{label}")
+                )
+                feat = feat.merge(nc, on="ID", how="left")
+                feat[f"n_{label}"] = feat[f"n_{label}"].fillna(0)
+            feat["clonal_ratio"] = feat["n_vaf_gt_30"] / (feat["n_mutations"] + 1)
+            feat["high_clone_ratio"] = feat["n_vaf_gt_50"] / (feat["n_mutations"] + 1)
         else:
-            feat["n_clonal"] = 0
-            feat["n_subclonal"] = 0
+            for label in ["vaf_gt_20", "vaf_gt_30", "vaf_gt_50"]:
+                feat[f"n_{label}"] = 0
             feat["clonal_ratio"] = 0
+            feat["high_clone_ratio"] = 0
 
         # --- Per-gene features via efficient pivot ---
         gm = mol[mol["GENE"].isin(self.genes_)]
@@ -433,6 +438,26 @@ class AutoFeatureBuilder:
             )
             feat = feat.merge(cm, on="ID", how="left")
             feat[f"chr_{ch}_muts"] = feat[f"chr_{ch}_muts"].fillna(0).astype(int)
+        return feat
+
+    # --- distinct chromosomes affected ---
+    def _add_chromosome_diversity(self, mdf, feat):
+        ids = feat["ID"].values
+        id_set = set(ids)
+        mol = (
+            mdf[mdf["ID"].isin(id_set)].copy()
+            if mdf is not None and not mdf.empty
+            else pd.DataFrame()
+        )
+        if mol.empty or "CHR" not in mol.columns:
+            feat["n_chr_affected"] = 0
+            return feat
+        mol["_chr"] = mol["CHR"].astype(str).str.strip()
+        chr_counts = (
+            mol.groupby("ID")["_chr"].nunique().reset_index(name="n_chr_affected")
+        )
+        feat = feat.merge(chr_counts, on="ID", how="left")
+        feat["n_chr_affected"] = feat["n_chr_affected"].fillna(0).astype(int)
         return feat
 
     # --- targeted high-value interaction features ---

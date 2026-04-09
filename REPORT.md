@@ -94,4 +94,15 @@
 - train.py: MIN_CINDEX 0.52→0.68
 **Result:** C-index = 0.7186 (prev: 0.7184) | status: keep
 **Analysis:** Small improvement. Dropping CoxPH (0.664) helps slightly — it was adding noise to the ensemble. 7 models remain. LightGBM (0.686) is now the weakest included model.
-**Next idea:** Try dropping LightGBM too (raise MIN_CINDEX to 0.69) or try another feature engineering approach. Also try adding more interaction features or mutation count × clinical interactions beyond just the 3 gene flags.
+**Next idea:** Try VAF threshold diversity (multiple thresholds) and chromosome diversity features.
+
+---
+### Experiment 18: VAF threshold diversity + chromosome diversity
+**Date:** 2026-04-09
+**Hypothesis:** Multiple VAF thresholds (0.2, 0.3, 0.5) instead of just 0.3 will capture different clonal hierarchies. Number of distinct chromosomes affected by mutations captures genomic instability.
+**Changes:**
+- data_transform.py: Replaced single clonal/subclonal split with 3 VAF thresholds (0.2, 0.3, 0.5) and added high_clone_ratio
+- data_transform.py: Added _add_chromosome_diversity() method with n_chr_affected feature
+**Result:** C-index = 0.7194 (prev: 0.7186) | status: keep
+**Analysis:** New best! VAF threshold diversity (3 thresholds) provides richer signal about clonal structure. Chromosome diversity feature (n_chr_affected) captures genomic instability. GBM models all improved (gbsurv2: 0.7152, gbsurv3: 0.7165). LightGBM improved to 0.6874. RSF models stable.
+**Next idea:** Continue improving features or try adding a 4th RSF/GBM variant.
