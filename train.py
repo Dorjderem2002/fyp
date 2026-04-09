@@ -124,6 +124,24 @@ def create_models():
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
+        "rsf3": RandomSurvivalForest(
+            n_estimators=500,
+            max_depth=None,
+            min_samples_split=20,
+            min_samples_leaf=8,
+            max_features="log2",
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        ),
+        "gbsurv3": GradientBoostingSurvivalAnalysis(
+            n_estimators=400,
+            max_depth=4,
+            learning_rate=0.01,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            subsample=0.9,
+            random_state=RANDOM_STATE,
+        ),
         "lgbm": LGBMSurvivalProxy(event_weight=3.0),
     }
 
