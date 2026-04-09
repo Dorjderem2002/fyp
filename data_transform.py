@@ -275,7 +275,6 @@ class AutoFeatureBuilder:
             for g in self.genes_:
                 feat[f"has_{g}"] = 0
                 feat[f"vaf_{g}"] = 0.0
-                feat[f"cnt_{g}"] = 0
             for e in self.effects_:
                 feat[f"eff_{e}"] = 0
             return feat
@@ -352,10 +351,10 @@ class AutoFeatureBuilder:
             has_piv = has_piv[self.genes_]
             cnt_piv = cnt_piv[self.genes_]
             has_piv.columns = [f"has_{g}" for g in self.genes_]
-            cnt_piv.columns = [f"cnt_{g}" for g in self.genes_]
+            # cnt_piv columns not added — mostly zero-imp in LGBM
 
             feat = feat.merge(has_piv, left_on="ID", right_index=True, how="left")
-            feat = feat.merge(cnt_piv, left_on="ID", right_index=True, how="left")
+            # feat = feat.merge(cnt_piv, left_on="ID", right_index=True, how="left")
 
             if has_vaf:
                 vaf_piv = vaf_piv[self.genes_]
@@ -374,7 +373,6 @@ class AutoFeatureBuilder:
         for g in self.genes_:
             feat[f"has_{g}"] = feat[f"has_{g}"].fillna(0).astype(int)
             feat[f"vaf_{g}"] = feat[f"vaf_{g}"].fillna(0.0)
-            feat[f"cnt_{g}"] = feat[f"cnt_{g}"].fillna(0).astype(int)
 
         # --- Per-effect counts ---
         if "EFFECT" in mol.columns and self.effects_:
