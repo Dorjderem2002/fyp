@@ -224,6 +224,35 @@ class AutoFeatureBuilder:
         feat["cyto_normal"] = normal_list
         feat["cyto_complex"] = (np.array(n_abn_list) >= 3).astype(int)
 
+        del5q = cyto.fillna("").str.lower().str.contains(r"del\(5").astype(int)
+        del7q = cyto.fillna("").str.lower().str.contains(r"del\(7").astype(int)
+        del20q = cyto.fillna("").str.lower().str.contains(r"del\(20").astype(int)
+        del17p = cyto.fillna("").str.lower().str.contains(r"del\(17").astype(int)
+        minus5 = (
+            cyto.fillna("")
+            .str.lower()
+            .str.contains(r"(?:^|[,/\s])-5(?:[,/\s]|$)")
+            .astype(int)
+        )
+        minus7 = (
+            cyto.fillna("")
+            .str.lower()
+            .str.contains(r"(?:^|[,/\s])-7(?:[,/\s]|$)")
+            .astype(int)
+        )
+        plus8 = cyto.fillna("").str.lower().str.contains(r"\+8").astype(int)
+        plus21 = cyto.fillna("").str.lower().str.contains(r"\+21").astype(int)
+        inv3 = cyto.fillna("").str.lower().str.contains(r"inv\(3").astype(int)
+        feat["cyto_del5q"] = del5q.values
+        feat["cyto_del7q"] = del7q.values
+        feat["cyto_del20q"] = del20q.values
+        feat["cyto_del17p"] = del17p.values
+        feat["cyto_minus5"] = minus5.values
+        feat["cyto_minus7"] = minus7.values
+        feat["cyto_plus8"] = plus8.values
+        feat["cyto_plus21"] = plus21.values
+        feat["cyto_inv3"] = inv3.values
+
         # Auto-discovered token indicators
         for tok in self.cyto_tokens_:
             vals = []
