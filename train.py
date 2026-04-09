@@ -210,7 +210,7 @@ def run():
     # Fit on training data only (using median imputation for NaN handling)
     imp_temp = SimpleImputer(strategy="median")
     X_temp = imp_temp.fit_transform(X_all)
-    vt = VarianceThreshold(threshold=0.001)
+    vt = VarianceThreshold(threshold=0.005)
     vt.fit(X_temp)
     keep_mask = vt.get_support()
     feature_cols_filtered = [c for c, k in zip(feature_cols, keep_mask) if k]

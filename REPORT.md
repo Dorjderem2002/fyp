@@ -105,4 +105,14 @@
 - data_transform.py: Added _add_chromosome_diversity() method with n_chr_affected feature
 **Result:** C-index = 0.7194 (prev: 0.7186) | status: keep
 **Analysis:** New best! VAF threshold diversity (3 thresholds) provides richer signal about clonal structure. Chromosome diversity feature (n_chr_affected) captures genomic instability. GBM models all improved (gbsurv2: 0.7152, gbsurv3: 0.7165). LightGBM improved to 0.6874. RSF models stable.
-**Next idea:** Continue improving features or try adding a 4th RSF/GBM variant.
+**Next idea:** Try further increasing the variance threshold (0.01, 0.02) to see if even more aggressive noise removal helps.
+
+---
+### Experiment 20: Increase variance threshold to 0.005
+**Date:** 2026-04-09
+**Hypothesis:** Removing near-constant features (variance < 0.005 instead of < 0.001) will reduce noise and improve model performance.
+**Changes:**
+- train.py: VarianceThreshold 0.001→0.005
+**Result:** C-index = 0.7205 (prev: 0.7194) | status: keep
+**Analysis:** Major improvement! Raising variance threshold removed 186 noisy features (615→429), and every model improved. CoxPH: 0.663→0.684, LightGBM: 0.687→0.688. Many auto-discovered cyto tokens and co-mutation pairs were near-constant and added noise. Removing them let models focus on informative features.
+**Next idea:** Try even higher variance threshold (0.01, 0.02).
