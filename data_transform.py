@@ -167,7 +167,7 @@ class AutoFeatureBuilder:
         feat = self._add_clinical(clinical_df, feat)
         feat = self._add_cyto(clinical_df, feat)
         feat = self._add_molecular(molecular_df, feat)
-        feat = self._add_comut(molecular_df, feat)
+        # feat = self._add_comut(molecular_df, feat)  # disabled: too many zero-imp features
         feat = self._add_chr_counts(molecular_df, feat)
         feat = self._add_targeted_interactions(clinical_df, molecular_df, feat)
         feat = self._add_chromosome_diversity(molecular_df, feat)
