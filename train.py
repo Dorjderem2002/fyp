@@ -106,6 +106,15 @@ def create_models():
             random_state=RANDOM_STATE,
             n_jobs=-1,
         ),
+        "rsf2": RandomSurvivalForest(
+            n_estimators=700,
+            max_depth=12,
+            min_samples_split=10,
+            min_samples_leaf=4,
+            max_features=0.5,
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+        ),
         "lgbm": LGBMSurvivalProxy(event_weight=3.0),
     }
 

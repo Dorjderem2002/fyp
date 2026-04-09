@@ -53,4 +53,14 @@
 - train.py: LightGBM event_weight 2.0→3.0
 **Result:** C-index = 0.7149 (prev: 0.7143) | status: keep
 **Analysis:** Clinical-molecular interactions helped. RSF improved to 0.7163 (best single model so far). LightGBM slightly improved with higher event_weight. GBM stable at 0.7150. The interactions (BM_BLAST × FLT3_ITD, WBC × TP53, etc.) capture that mutations have different prognostic meaning depending on disease burden. 612 features, still reasonable.
-**Next idea:** Try pushing LightGBM further — maybe try a completely different configuration or add more trees. Also try tuning GBM more aggressively — try max_depth=4.
+**Next idea:** Try adding a second RSF with different hyperparameters for ensemble diversity and tuning GBM subsample.
+
+---
+### Experiment 9: Second RSF model (rsf2) for ensemble diversity
+**Date:** 2026-04-09
+**Hypothesis:** Adding a second RSF with different hyperparameters (deeper, more trees, different max_features) will improve ensemble through diversity. RSF is the best single model so different RSF configs may capture different patterns.
+**Changes:**
+- train.py: Added rsf2 — n_estimators=700, max_depth=12, min_samples_split=10, min_samples_leaf=4, max_features=0.5
+**Result:** C-index = 0.7171 (prev: 0.7149) | status: keep
+**Analysis:** Big improvement! Second RSF with different hyperparameters (rsf2: 0.7149) adds valuable ensemble diversity. Both RSFs together with GBM create a stronger ensemble. But run time increased to 21 min — could be an issue if we need faster iterations. The two RSF models have complementary strengths: rsf (sqrt features, shallower) vs rsf2 (0.5 features, deeper).
+**Next idea:** Try adding a second GBM with different hyperparameters for more diversity. Also consider reducing rsf2 n_estimators to speed up (e.g. 500 instead of 700) while checking if C-index holds.
