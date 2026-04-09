@@ -84,4 +84,14 @@
 - train.py: Added gbsurv3 — n_estimators=400, max_depth=4, learning_rate=0.01, min_samples_split=10, min_samples_leaf=5, subsample=0.9
 **Result:** C-index = 0.7184 (prev: 0.7177) | status: keep
 **Analysis:** Continued improvement with more model diversity. rsf3 (0.7142) and gbsurv3 (0.7148) add useful diversity. 8 models now, all included. Run time 26 min — still within budget but growing. CoxPH (0.6638) is the weakest and may be dragging down the ensemble slightly.
-**Next idea:** Try raising MIN_CINDEX to drop CoxPH. Also try one more RSF variant or different approach.
+**Next idea:** Try raising MIN_CINDEX to drop CoxPH (weakest model at 0.664). Also try one more model variant.
+
+---
+### Experiment 12: Raise MIN_CINDEX to 0.68 to exclude CoxPH
+**Date:** 2026-04-09
+**Hypothesis:** CoxPH (0.664) is dragging down the ensemble. Excluding it should improve the ensemble by letting stronger models dominate.
+**Changes:**
+- train.py: MIN_CINDEX 0.52→0.68
+**Result:** C-index = 0.7186 (prev: 0.7184) | status: keep
+**Analysis:** Small improvement. Dropping CoxPH (0.664) helps slightly — it was adding noise to the ensemble. 7 models remain. LightGBM (0.686) is now the weakest included model.
+**Next idea:** Try dropping LightGBM too (raise MIN_CINDEX to 0.69) or try another feature engineering approach. Also try adding more interaction features or mutation count × clinical interactions beyond just the 3 gene flags.

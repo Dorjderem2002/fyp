@@ -147,7 +147,7 @@ def create_models():
 
 
 # Minimum mean CV C-index to include a model in ensemble
-MIN_CINDEX = 0.52
+MIN_CINDEX = 0.68
 
 
 # =====================================================================
