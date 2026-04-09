@@ -200,14 +200,22 @@ class AutoFeatureBuilder:
         cyto = cdf["CYTOGENETICS"]
         feat["cyto_missing"] = cyto.isna().astype(int).values
 
-        n_clones_list, n_abn_list, normal_list = [], [], []
+        n_clones_list, n_abn_list, normal_list, chr_count_list = [], [], [], []
         for s in cyto:
             if pd.isna(s):
                 n_clones_list.append(0)
                 n_abn_list.append(0)
                 normal_list.append(0)
+                chr_count_list.append(0)
                 continue
             s_low = str(s).lower().strip()
+
+            m_chr = re.match(r"^(\d+),", s_low)
+            chr_count = int(m_chr.group(1)) if m_chr else 0
+            if chr_count > 90:
+                chr_count = 0
+            chr_count_list.append(chr_count)
+
             clones = s_low.split("/")
             n_clones_list.append(len(clones))
 
@@ -223,6 +231,7 @@ class AutoFeatureBuilder:
         feat["cyto_n_abn"] = n_abn_list
         feat["cyto_normal"] = normal_list
         feat["cyto_complex"] = (np.array(n_abn_list) >= 3).astype(int)
+        feat["cyto_chr_count"] = chr_count_list
 
         del5q = cyto.fillna("").str.lower().str.contains(r"del\(5").astype(int)
         del7q = cyto.fillna("").str.lower().str.contains(r"del\(7").astype(int)
