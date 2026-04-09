@@ -63,4 +63,14 @@
 - train.py: Added rsf2 — n_estimators=700, max_depth=12, min_samples_split=10, min_samples_leaf=4, max_features=0.5
 **Result:** C-index = 0.7171 (prev: 0.7149) | status: keep
 **Analysis:** Big improvement! Second RSF with different hyperparameters (rsf2: 0.7149) adds valuable ensemble diversity. Both RSFs together with GBM create a stronger ensemble. But run time increased to 21 min — could be an issue if we need faster iterations. The two RSF models have complementary strengths: rsf (sqrt features, shallower) vs rsf2 (0.5 features, deeper).
-**Next idea:** Try adding a second GBM with different hyperparameters for more diversity. Also consider reducing rsf2 n_estimators to speed up (e.g. 500 instead of 700) while checking if C-index holds.
+**Next idea:** Try adding a second GBM with different hyperparameters for more diversity. Also try reducing rsf2 n_estimators to speed up.
+
+---
+### Experiment 10: Second GBM model (gbsurv2) for ensemble diversity
+**Date:** 2026-04-09
+**Hypothesis:** Adding a second GBM with different hyperparameters (shallower, faster LR, lower subsample) will add ensemble diversity like rsf2 did.
+**Changes:**
+- train.py: Added gbsurv2 — n_estimators=300, max_depth=2, learning_rate=0.05, min_samples_split=20, min_samples_leaf=10, subsample=0.7
+**Result:** C-index = 0.7177 (prev: 0.7171) | status: keep
+**Analysis:** Another improvement! gbsurv2 (0.7139) adds diversity. 6 models now in ensemble. The pattern is clear: model diversity is the most powerful lever right now. gbsurv2 is shallower (depth=2) with different LR and subsample than gbsurv — it captures different patterns. Run time 22 min, still within budget.
+**Next idea:** Try adding yet more model diversity — a third RSF or GBM variant. Also try adding a different CoxPH alpha or dropping CoxPH (weakest model) from the ensemble to see if it's dragging it down.

@@ -97,6 +97,15 @@ def create_models():
             subsample=0.8,
             random_state=RANDOM_STATE,
         ),
+        "gbsurv2": GradientBoostingSurvivalAnalysis(
+            n_estimators=300,
+            max_depth=2,
+            learning_rate=0.05,
+            min_samples_split=20,
+            min_samples_leaf=10,
+            subsample=0.7,
+            random_state=RANDOM_STATE,
+        ),
         "rsf": RandomSurvivalForest(
             n_estimators=500,
             max_depth=10,
